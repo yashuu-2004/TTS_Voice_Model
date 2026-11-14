@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
 One-command setup and launcher for the local IndicF5 Telugu Voice Lab on Windows.
@@ -434,7 +434,20 @@ finally:
 
 print(f"PyTorch {torch.__version__}, torchaudio {torchaudio.__version__}, Gradio {gradio.__version__}")
 '@
-        Invoke-Checked -FilePath $venvPython -ArgumentList @("-c", $verify)
+        # Run the verification as a temporary .py file instead of passing
+        # multiline Python source through PowerShell's native -c argument.
+        # This avoids quote/backslash corruption in Windows PowerShell 5.1.
+        $verifyPath = Join-Path ([IO.Path]::GetTempPath()) ("tts-runtime-check-{0}.py" -f [guid]::NewGuid().ToString("N"))
+        try {
+            [IO.File]::WriteAllText(
+                $verifyPath,
+                $verify,
+                (New-Object System.Text.UTF8Encoding($false))
+            )
+            Invoke-Checked -FilePath $venvPython -ArgumentList @($verifyPath)
+        } finally {
+            Remove-Item -LiteralPath $verifyPath -Force -ErrorAction SilentlyContinue
+        }
         New-Item -ItemType File -Path $marker -Force | Out-Null
     }
 
